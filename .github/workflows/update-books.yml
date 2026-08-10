@@ -1,0 +1,39 @@
+name: Update goodreads bookshelf in README
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-books:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install feedparser
+
+      - name: Update README with latest shelf
+        env:
+          GOODREADS_USER_ID: '183200963'
+          GOODREADS_SHELF: 'engineering'
+          NUM_BOOKS: '20'
+        run: python .github/scripts/update_books.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --staged --quiet || git commit -m "docs: update bookshelf [skip ci]"
+          git push
