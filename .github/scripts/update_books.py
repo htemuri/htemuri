@@ -14,8 +14,32 @@ Env vars (all optional, defaults match the shelf in the original widget):
 
 import os
 import re
+from html.parser import HTMLParser
 
 import feedparser
+
+
+class _FirstLinkExtractor(HTMLParser):
+    """Grabs the href of the first <a> tag it encounters, then ignores the rest."""
+
+    def __init__(self):
+        super().__init__()
+        self.href = None
+
+    def handle_starttag(self, tag, attrs):
+        if self.href is None and tag == "a":
+            attrs = dict(attrs)
+            if attrs.get("href"):
+                self.href = attrs["href"]
+
+
+def extract_book_link(summary_html):
+    """Pulls the Goodreads book overview-page URL out of an RSS entry's summary."""
+    if not summary_html:
+        return None
+    parser = _FirstLinkExtractor()
+    parser.feed(summary_html)
+    return parser.href
 
 GOODREADS_USER_ID = os.environ.get("GOODREADS_USER_ID", "183200963")
 SHELF = os.environ.get("GOODREADS_SHELF", "engineering")
@@ -43,7 +67,9 @@ def fetch_books():
     books = []
     for entry in feed.entries[:NUM_BOOKS]:
         title = getattr(entry, "title", "Untitled").strip()
-        link = getattr(entry, "link", "#")
+
+        summary_html = getattr(entry, "summary", "")
+        link = extract_book_link(summary_html) or getattr(entry, "link", "#")
 
         image = (
             getattr(entry, "book_large_image_url", None)
